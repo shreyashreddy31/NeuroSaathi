@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroSaathi — AR Glasses Simulation</title>
+  <meta name="description" content="NeuroSaathi AI-powered AR glasses simulation — real-time face recognition, live transcription, and auto-summarized interaction memory." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LOADING SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="loading-screen">
+  <!-- Animated background particles -->
+  <div class="loader-bg">
+    <div class="loader-particle" style="--x:15%;--y:20%;--d:3s;--s:0.4;"></div>
+    <div class="loader-particle" style="--x:80%;--y:15%;--d:4s;--s:0.6;"></div>
+    <div class="loader-particle" style="--x:70%;--y:75%;--d:2.5s;--s:0.3;"></div>
+    <div class="loader-particle" style="--x:25%;--y:80%;--d:3.5s;--s:0.5;"></div>
+    <div class="loader-particle" style="--x:50%;--y:10%;--d:5s;--s:0.35;"></div>
+    <div class="loader-particle" style="--x:90%;--y:50%;--d:2.8s;--s:0.45;"></div>
+    <div class="loader-particle" style="--x:10%;--y:55%;--d:4.2s;--s:0.28;"></div>
+    <div class="loader-particle" style="--x:60%;--y:88%;--d:3.2s;--s:0.5;"></div>
+  </div>
+
+  <!-- AR Glasses Animation -->
+  <div class="ar-glasses-loader">
+    <div class="glasses-bridge"></div>
+    <div class="lens left">
+      <div class="scan-line"></div>
+      <div class="hud-data"></div>
+    </div>
+    <div class="lens right">
+      <div class="scan-line"></div>
+      <div class="hud-target"></div>
+    </div>
+  </div>
+
+  <!-- Text content -->
+  <div class="loader-content">
+    <div class="loader-logo">NeuroSaathi</div>
+    <div class="loader-sub">AR Memory Glasses · AI Companion</div>
+
+    <!-- Progress bar -->
+    <div class="loader-track">
+      <div class="loader-fill" id="loader-fill"></div>
+      <div class="loader-glow" id="loader-glow"></div>
+    </div>
+
+    <!-- Step status list -->
+    <div class="loader-steps" id="loader-steps">
+      <div class="loader-step" id="step-camera">
+        <span class="step-dot"></span>
+        <span class="step-label">Camera & microphone</span>
+      </div>
+      <div class="loader-step" id="step-models">
+        <span class="step-dot"></span>
+        <span class="step-label">Face recognition models</span>
+      </div>
+      <div class="loader-step" id="step-asr">
+        <span class="step-dot"></span>
+        <span class="step-label">Speech engine</span>
+      </div>
+      <div class="loader-step" id="step-ready">
+        <span class="step-dot"></span>
+        <span class="step-label">System ready</span>
+      </div>
+    </div>
+
+    <div class="loader-status" id="loader-status">Initialising…</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN STAGE
+═══════════════════════════════════════════════════ -->
+<div id="stage">
+
+  <!-- Live webcam feed -->
+  <video id="webcam" autoplay muted playsinline></video>
+
+  <!-- Stopped overlay -->
+  <div id="stopped-overlay">
+    <div class="stop-icon">📷</div>
+    <p>Video paused — press Resume to continue</p>
+  </div>
+
+  <!-- Glasses mode layers -->
+  <div id="vignette"></div>
+  <div id="scanlines"></div>
+
+  <!-- Face recognition + transcript overlays -->
+  <div id="face-overlays"></div>
+
+  <!-- ── HUD: Top-right — Connected badge ─────────── -->
+  <div id="status-badge">
+    <span id="status-dot"></span>
+    <span id="status-text">Connected (WebRTC)</span>
+  </div>
+
+  <!-- ── HUD: Top-left — Mic listening badge ──────── -->
+  <div id="mic-global-status" style="display:none;"></div>
+
+  <!-- ── HUD: Enrolled profiles list ─────────────── -->
+  <div id="profiles-list"></div>
+
+  <!-- ── Reminder Overlay ───────────────────────────── -->
+  <div id="reminder-overlay" role="alert" aria-live="assertive">
+    <div class="reminder-card">
+      <div class="reminder-header">
+        <span class="reminder-icon" id="reminder-icon">💊</span>
+        <span class="reminder-type-badge" id="reminder-type-badge">Medicine</span>
+        <span class="reminder-title" id="reminder-title">Time for your medication</span>
+      </div>
+      <div class="reminder-body">
+        <div class="reminder-message" id="reminder-message">
+          Please take your morning tablets with a glass of water.
+        </div>
+        <div class="reminder-actions">
+          <button class="btn-acknowledge" id="btn-acknowledge" onclick="dismissReminder()">✓ Done</button>
+          <button class="btn-snooze" onclick="snoozeReminder()">Snooze 5 min</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom Control Bar ────────────────────────── -->
+  <div id="control-bar">
+    <div style="width:80px;"></div>
+
+    <div class="ctrl-group">
+      <!-- Mute / Unmute Mic -->
+      <button class="btn-stop-video" id="btn-stop-video" onclick="toggleMic()">
+        <div class="stop-circle"><span id="stop-icon-inner">🎙</span></div>
+        <span class="stop-label" id="stop-label">Mute Mic</span>
+      </button>
+
+      <!-- Enroll face -->
+      <button class="btn-enroll" id="btn-enroll" onclick="openEnrollModal()">
+        <div class="enroll-circle">👤</div>
+        <span class="enroll-label">Enroll Face</span>
+      </button>
+
+      <!-- Trigger reminder (demo) -->
+      <button class="btn-reminder-trigger" id="btn-reminder-trigger" onclick="triggerReminderDemo()">
+        <div class="reminder-circle">🔔</div>
+        <span class="reminder-ctrl-label">Reminder</span>
+      </button>
+
+      <!-- Settings -->
+      <button class="btn-settings" id="btn-settings" onclick="openSettings()">
+        <div class="settings-circle">⚙️</div>
+        <span class="settings-label">Settings</span>
+      </button>
+
+      <!-- Divider -->
+      <div style="width:1px; height:30px; background:rgba(255,255,255,0.12); margin:0 4px;"></div>
+
+      <!-- Enter Glasses View -->
+      <button class="btn-glasses-mode" id="btn-glasses-mode" onclick="toggleGlassesMode()">
+        Enter Ray-Ban Mode
+      </button>
+    </div>
+
+    <!-- Right spacer -->
+    <div style="width:80px;"></div>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- ═══════════════════════════════════════════════════
+     ENROLLMENT MODAL
+═══════════════════════════════════════════════════ -->
+<div id="enroll-modal" role="dialog" aria-modal="true" aria-label="Enroll a new face">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Enroll a Face</div>
+        <div class="modal-subtitle">Capture a photo, then fill in details — notes are auto-updated after each visit</div>
+      </div>
+      <button class="btn-close-modal" onclick="closeEnrollModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="snapshot-wrap">
+        <video id="enroll-preview" autoplay muted playsinline></video>
+        <canvas id="enroll-snapshot" style="display:none; position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></canvas>
+        <div class="snap-hint" id="snap-hint">Position face in frame, then capture</div>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label for="enroll-name">First Name</label>
+          <input type="text" id="enroll-name" placeholder="e.g. Arnav" maxlength="30" />
+        </div>
+        <div class="field">
+          <label for="enroll-rel">Relationship</label>
+          <select id="enroll-rel">
+            <option value="Son">Son</option>
+            <option value="Daughter">Daughter</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Grandchild">Grandchild</option>
+            <option value="Caregiver">Caregiver</option>
+            <option value="Doctor">Doctor</option>
+            <option value="Neighbour">Neighbour</option>
+            <option value="Friend">Friend</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="enroll-note">Initial Note <span style="opacity:0.4;font-weight:400;">(auto-updated after first visit)</span></label>
+          <textarea id="enroll-note" placeholder="e.g. Visited last week, talked about the hackathon" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-snap"   id="btn-snap"   onclick="captureSnapshot()">📷 Capture</button>
+        <button class="btn-retake" id="btn-retake" onclick="retakeSnapshot()">↩ Retake</button>
+        <button class="btn-save"   id="btn-save"   onclick="saveEnrollment()" disabled>Save Profile</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SETTINGS MODAL
+═══════════════════════════════════════════════════ -->
+<div id="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">⚙️ Settings</div>
+        <div class="modal-subtitle">Configure AI summarization and microphone language</div>
+      </div>
+      <button class="btn-close-modal" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Gemini API key -->
+      <div class="settings-section">
+        <div class="settings-section-title">AI Summarization — Gemini API</div>
+        <div class="settings-section-desc">
+          Paste your <strong>Gemini API key</strong> (free tier available at
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a>).
+          Without a key, the app uses extractive summarization instead.
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label for="input-gemini-key">Gemini API Key</label>
+          <input type="password" id="input-gemini-key" placeholder="AIza…" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+
+      <!-- ASR language -->
+      <div class="settings-section">
+        <div class="settings-section-title">Microphone Language</div>
+        <div class="settings-section-desc">
+          Language for live speech transcription. For NER regional languages, IndicWhisper integration is the production path.
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label for="select-asr-lang">Recognition Language</label>
+          <select id="select-asr-lang">
+            <option value="en-US">English (US)</option>
+            <option value="en-IN">English (India)</option>
+            <option value="hi-IN">Hindi (हिन्दी)</option>
+            <option value="bn-IN">Bengali (বাংলা)</option>
+            <option value="ne-NP">Nepali (नेपाली)</option>
+            <option value="as-IN">Assamese (অসমীয়া)</option>
+            <option value="mr-IN">Manipuri / Meitei</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Silence threshold info -->
+      <div class="settings-section">
+        <div class="settings-section-title">Conversation End Detection</div>
+        <div class="settings-section-desc">
+          Summarization triggers automatically when:<br>
+          • The recognized face leaves the camera frame, <strong>or</strong><br>
+          • 6 seconds of silence pass with no new speech detected.
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:4px;">
+        <button class="btn-snap" onclick="closeSettings()" style="flex:1;">Cancel</button>
+        <button class="btn-save" style="flex:2; opacity:1;" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Notifications — stacked cards, top-right -->
+  <div id="notif-container"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════════════════ -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script src="asr.js"></script>
+<script src="summarizer.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>

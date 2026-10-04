@@ -1,0 +1,8 @@
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+
+# ── Local config (API keys — NEVER commit) ────────────────────
+config.js
+
+# ── macOS ──────────────────────────────────────────────────────
+.DS_Store
